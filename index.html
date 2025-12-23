@@ -5,176 +5,227 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Maintenance Builder Demo</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 20px; }
-    h1 { margin: 0 0 10px; }
-    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 18px; }
+    h1 { margin: 0 0 8px; }
     .status { font-size: 13px; color: #555; }
-    .grid { display:grid; grid-template-columns: 1fr 380px; gap:16px; }
-    .card { border:1px solid #ddd; border-radius:12px; padding:14px; }
-    .card h2 { font-size: 16px; margin: 0 0 10px; }
-    .filters { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; }
-    .block { border:1px solid #eee; border-radius:10px; padding:10px; }
-    .block h3 { font-size: 13px; margin: 0 0 8px; color:#333; }
+
+    .topbar {
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+      margin-bottom:12px;
+    }
+    .pill {
+      border:1px solid #ddd; border-radius:12px; padding:10px 12px; background:#fff;
+      min-width: 260px;
+    }
+    .pill b { display:block; margin-bottom:2px; }
     .muted { color:#777; }
     .tiny { font-size:12px; }
-    .search { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; margin-bottom:8px; }
-    .checklist { max-height: 220px; overflow:auto; border-top: 1px dashed #eee; padding-top:8px; }
+
+    .card { border:1px solid #ddd; border-radius:14px; padding:14px; background:#fff; }
+    .card h2 { font-size: 16px; margin: 0 0 10px; }
+
+    /* NEW: horizontal filter row */
+    .filterRow {
+      display:flex;
+      gap:12px;
+      overflow-x:auto;
+      padding-bottom:10px;
+      scroll-snap-type: x mandatory;
+    }
+    .filterRow::-webkit-scrollbar { height: 10px; }
+    .filterRow::-webkit-scrollbar-thumb { background:#ddd; border-radius: 999px; }
+
+    .block {
+      border:1px solid #eee;
+      border-radius:12px;
+      padding:10px;
+      min-width: 260px;      /* each filter same width */
+      max-width: 320px;
+      flex: 0 0 auto;
+      scroll-snap-align: start;
+      background:#fff;
+    }
+    .block h3 { font-size: 13px; margin: 0 0 8px; color:#333; }
+
+    .search { width:100%; padding:8px; border-radius:10px; border:1px solid #ddd; margin-bottom:8px; }
+    .checklist { max-height: 180px; overflow:auto; border-top: 1px dashed #eee; padding-top:8px; }
     .row { display:flex; gap:8px; align-items:center; padding:6px 0; }
     .row input { transform: translateY(1px); }
     .quick { display:flex; gap:8px; margin: 4px 0 8px; }
-    .btn { padding:10px 12px; border:1px solid #ccc; border-radius:10px; background:#fff; cursor:pointer; }
+
+    .btn { padding:10px 12px; border:1px solid #ccc; border-radius:12px; background:#fff; cursor:pointer; }
     .btn:hover { background:#f7f7f7; }
     .btn.primary { border-color:#111; }
-    .btn.small { padding:6px 10px; border-radius:10px; font-size: 12px; }
-    .form { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+
     .field { display:flex; flex-direction:column; gap:6px; }
     .field label { font-size: 12px; color:#333; }
-    .field input, .field select { padding:10px; border-radius:10px; border:1px solid #ddd; }
-    .actions { display:flex; gap:10px; margin-top: 10px; }
+    .field input, .field select { padding:10px; border-radius:12px; border:1px solid #ddd; }
+
     table { width: 100%; border-collapse: collapse; }
     th, td { border-bottom: 1px solid #eee; padding: 8px; font-size: 13px; text-align:left; }
     th { color:#444; font-weight:600; }
     code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
-    .preview { max-height: 320px; overflow:auto; border:1px solid #eee; border-radius:10px; }
-    @media (max-width: 1050px) { .grid { grid-template-columns: 1fr; } }
+
+    .previewWrap { margin-top: 12px; }
+    .preview { max-height: 320px; overflow:auto; border:1px solid #eee; border-radius:12px; }
+
+    /* Generator at bottom */
+    .generatorGrid {
+      display:grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap:10px;
+      align-items:end;
+    }
+    @media (max-width: 1100px) {
+      .generatorGrid { grid-template-columns: 1fr 1fr; }
+      .pill { min-width: 200px; }
+      .block { min-width: 240px; }
+    }
   </style>
 </head>
+
 <body>
   <div class="topbar">
     <div>
       <h1>Maintenance Builder</h1>
       <div class="status">Status: <span id="status">…</span></div>
     </div>
-    <div class="card">
-      <div><b>Véhicules matchés:</b> <span id="match_count">0</span></div>
-      <div class="muted tiny">Les filtres vides = “tous”. Multi-sélection avec cases.</div>
+
+    <div class="pill">
+      <b>Véhicules matchés: <span id="match_count">0</span></b>
+      <div class="muted tiny">Filtres vides = “tous”. Multi-sélection avec cases.</div>
     </div>
   </div>
 
-  <div class="grid">
-    <!-- LEFT: filters + preview -->
-    <div class="card">
-      <h2>Filtres véhicules</h2>
-      <div class="filters">
-        <div class="block">
-          <h3>Marque (make)</h3>
-          <div id="make_list"></div>
-        </div>
+  <!-- FILTERS -->
+  <div class="card">
+    <h2>Filtres véhicules</h2>
 
-        <div class="block">
-          <h3>Modèle (model)</h3>
-          <div id="model_list"></div>
-        </div>
+    <div class="filterRow">
+      <div class="block">
+        <h3>Marque (make)</h3>
+        <div id="make_list"></div>
+      </div>
 
-        <div class="block">
-          <h3>Années</h3>
-          <div class="field">
-            <label>De</label>
-            <select id="year_from"></select>
-          </div>
-          <div class="field" style="margin-top:8px;">
-            <label>À</label>
-            <select id="year_to"></select>
-          </div>
-        </div>
+      <div class="block">
+        <h3>Modèle (model)</h3>
+        <div id="model_list"></div>
+      </div>
 
-        <div class="block">
-          <h3>Moteur (engine)</h3>
-          <div id="engine_list"></div>
+      <div class="block">
+        <h3>Années</h3>
+        <div class="field">
+          <label>De</label>
+          <select id="year_from"></select>
         </div>
+        <div class="field" style="margin-top:8px;">
+          <label>À</label>
+          <select id="year_to"></select>
+        </div>
+      </div>
 
-        <div class="block">
-          <h3>Transmission (trans)</h3>
-          <div id="trans_list"></div>
-        </div>
+      <div class="block">
+        <h3>Moteur (engine)</h3>
+        <div id="engine_list"></div>
+      </div>
 
-        <div class="block">
-          <h3>Propulsion (propul)</h3>
-          <div id="propul_list"></div>
-        </div>
+      <div class="block">
+        <h3>Transmission (trans)</h3>
+        <div id="trans_list"></div>
+      </div>
 
-        <div class="block">
-          <h3>Carburant (fuel)</h3>
-          <div id="fuel_list"></div>
-        </div>
+      <div class="block">
+        <h3>Propulsion (propul)</h3>
+        <div id="propul_list"></div>
+      </div>
 
-        <div class="block" style="grid-column: 1 / -1;">
-          <h3>Aperçu (max 50)</h3>
-          <div class="preview">
-            <table>
-              <thead>
-                <tr>
-                  <th>Year</th><th>Make</th><th>Model</th><th>Engine</th><th>Trans</th><th>Propul</th><th>Fuel</th>
-                </tr>
-              </thead>
-              <tbody id="preview_body"></tbody>
-            </table>
-          </div>
-        </div>
+      <div class="block">
+        <h3>Carburant (fuel)</h3>
+        <div id="fuel_list"></div>
       </div>
     </div>
 
-    <!-- RIGHT: maintenance rule builder -->
-    <div class="card">
-      <h2>Créer une règle d’entretien</h2>
-
-      <div class="form">
-        <div class="field" style="grid-column: 1 / -1;">
-          <label>Entretien (maint_code)</label>
-          <select id="maint_code"></select>
-        </div>
-
-        <div class="field">
-          <label>Cost</label>
-          <input id="cost" type="number" step="0.01" placeholder="ex: 158">
-        </div>
-
-        <div class="field">
-          <label>Retail</label>
-          <input id="retail" type="number" step="0.01" placeholder="ex: 325">
-        </div>
-
-        <div class="field">
-          <label>First months</label>
-          <input id="first_months" type="number" step="1" placeholder="ex: 48 (vide ok)">
-        </div>
-
-        <div class="field">
-          <label>First km</label>
-          <input id="first_km" type="number" step="1" placeholder="ex: 96000 (vide ok)">
-        </div>
-
-        <div class="field">
-          <label>Repeat months</label>
-          <input id="repeat_months" type="number" step="1" placeholder="ex: 24 (vide ok)">
-        </div>
-
-        <div class="field">
-          <label>Repeat km</label>
-          <input id="repeat_km" type="number" step="1" placeholder="ex: 50000 (vide ok)">
-        </div>
-      </div>
-
-      <div class="actions">
-        <button class="btn primary" id="save_rule" type="button">Save rule</button>
-        <button class="btn" id="export_assignments" type="button">Export assignments CSV</button>
-      </div>
-
-      <div style="margin-top:14px;">
-        <h2>Règles sauvegardées</h2>
+    <!-- PREVIEW -->
+    <div class="previewWrap">
+      <h2>Aperçu (max 50)</h2>
+      <div class="preview">
         <table>
           <thead>
             <tr>
-              <th>ID</th><th>Code</th><th>Cost</th><th>Retail</th><th>Années</th><th>Critères</th>
+              <th>Year</th><th>Make</th><th>Model</th><th>Engine</th><th>Trans</th><th>Propul</th><th>Fuel</th>
             </tr>
           </thead>
-          <tbody id="rules_body">
-            <tr><td colspan="6" class="muted">Aucune règle sauvegardée.</td></tr>
-          </tbody>
+          <tbody id="preview_body"></tbody>
         </table>
-        <div class="muted tiny" style="margin-top:8px;">
-          Le bouton “Export assignments CSV” te télécharge un fichier prêt à remplacer/importer.
-        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GENERATOR AT BOTTOM -->
+  <div class="card" style="margin-top: 12px;">
+    <h2>Générateur de plan de maintenance</h2>
+
+    <div class="generatorGrid">
+      <div class="field">
+        <label>Entretien (maint_code)</label>
+        <select id="maint_code"></select>
+      </div>
+
+      <div class="field">
+        <label>Cost</label>
+        <input id="cost" type="number" step="0.01" placeholder="ex: 158">
+      </div>
+
+      <div class="field">
+        <label>Retail</label>
+        <input id="retail" type="number" step="0.01" placeholder="ex: 325">
+      </div>
+
+      <div class="field">
+        <label>First months</label>
+        <input id="first_months" type="number" step="1" placeholder="ex: 48 (vide ok)">
+      </div>
+
+      <div class="field">
+        <label>First km</label>
+        <input id="first_km" type="number" step="1" placeholder="ex: 96000 (vide ok)">
+      </div>
+
+      <div class="field">
+        <label>Repeat months</label>
+        <input id="repeat_months" type="number" step="1" placeholder="ex: 24 (vide ok)">
+      </div>
+
+      <div class="field">
+        <label>Repeat km</label>
+        <input id="repeat_km" type="number" step="1" placeholder="ex: 50000 (vide ok)">
+      </div>
+
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn primary" id="save_rule" type="button">Save rule</button>
+      </div>
+
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn" id="export_assignments" type="button">Export assignments CSV</button>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px;">
+      <h2>Règles sauvegardées</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>Code</th><th>Cost</th><th>Retail</th><th>Années</th><th>Critères</th>
+          </tr>
+        </thead>
+        <tbody id="rules_body">
+          <tr><td colspan="6" class="muted">Aucune règle sauvegardée.</td></tr>
+        </tbody>
+      </table>
+      <div class="muted tiny" style="margin-top:8px;">
+        “Export assignments CSV” télécharge un fichier prêt à remplacer/importer.
       </div>
     </div>
   </div>
