@@ -3,7 +3,6 @@
 
 const VEHICLES_CSV = "vehicules.csv";
 const MAINT_TYPES_CSV = "maintenance_types.csv";
-const ASSIGNMENTS_CSV = "assignments.csv"; // optional (for header reference)
 
 const state = {
   vehicles: [],
@@ -50,7 +49,6 @@ function parseCSV(url) {
   });
 }
 
-// ---------- utils ----------
 function uniqSorted(arr) {
   const s = new Set(arr.filter(v => v !== undefined && v !== null && String(v).trim() !== ""));
   return Array.from(s).sort((a,b) => String(a).localeCompare(String(b), "en", {numeric:true}));
@@ -62,12 +60,6 @@ function toInt(v) {
   if (!s) return null;
   const n = parseInt(s, 10);
   return Number.isFinite(n) ? n : null;
-}
-
-function setEquals(a, b) {
-  if (a.size !== b.size) return false;
-  for (const x of a) if (!b.has(x)) return false;
-  return true;
 }
 
 function setToPipe(set) {
@@ -93,16 +85,13 @@ function downloadText(filename, text) {
   URL.revokeObjectURL(a.href);
 }
 
-// ---------- filtering ----------
 function vehicleMatchesFilters(v) {
   const f = state.filters;
 
-  // year range (always treated as inclusive if set)
   const y = toInt(v.year);
   if (f.yearFrom !== null && y !== null && y < f.yearFrom) return false;
   if (f.yearTo !== null && y !== null && y > f.yearTo) return false;
 
-  // multi-select filters: if set is empty => "all"
   if (f.make.size && !f.make.has(v.make)) return false;
   if (f.model.size && !f.model.has(v.model)) return false;
   if (f.engine.size && !f.engine.has(v.engine)) return false;
@@ -117,7 +106,6 @@ function getFilteredVehicles() {
   return state.vehicles.filter(vehicleMatchesFilters);
 }
 
-// Compute available values for each filter based on *current* other filters
 function getAvailability(baseVehicles) {
   return {
     makes: uniqSorted(baseVehicles.map(v => v.make)),
@@ -130,14 +118,10 @@ function getAvailability(baseVehicles) {
   };
 }
 
-// For cascading: when computing availability for a given field, ignore that field's current selection
 function vehiclesWithAllFiltersExcept(exceptKey) {
-  const original = state.filters[exceptKey];
-  const saved = new Set(original);
-  // Temporarily clear that filter
+  const saved = new Set(state.filters[exceptKey]);
   state.filters[exceptKey] = new Set();
-  const base = getFilteredVehicles(); // uses other filters
-  // Restore
+  const base = getFilteredVehicles();
   state.filters[exceptKey] = saved;
   return base;
 }
@@ -159,7 +143,6 @@ function clampYearRangeToAvailable(avYears) {
   if (state.filters.yearFrom > state.filters.yearTo) state.filters.yearFrom = state.filters.yearTo;
 }
 
-// ---------- UI builders ----------
 function buildCheckboxList(containerId, values, selectedSet, onChange) {
   const el = $(containerId);
   el.innerHTML = "";
@@ -169,7 +152,6 @@ function buildCheckboxList(containerId, values, selectedSet, onChange) {
     return;
   }
 
-  // Search box
   const search = document.createElement("input");
   search.type = "text";
   search.placeholder = "Rechercher…";
@@ -185,7 +167,6 @@ function buildCheckboxList(containerId, values, selectedSet, onChange) {
     const ft = (filterText || "").trim().toLowerCase();
     const subset = values.filter(v => String(v).toLowerCase().includes(ft));
 
-    // All / none quick actions
     const quick = document.createElement("div");
     quick.className = "quick";
     quick.innerHTML = `
@@ -289,7 +270,7 @@ function fillMaintenanceDropdown() {
   const sel = $("maint_code");
   sel.innerHTML = `<option value="">— Choisir —</option>`;
   state.maintTypes.forEach(m => {
-    const code = m.maint_code || m.code || m.maintenance_code || "";
+    const code = m.maint_code || m.maint_c || m.code || m.maintenance_code || "";
     const name = m.maint_name || m.name || code;
     if (!code) return;
     const opt = document.createElement("option");
@@ -314,10 +295,8 @@ function readRuleForm() {
 
 function validateRule() {
   readRuleForm();
-
   if (!state.ui.selectedMaintCode) return "Choisis un entretien (maint_code).";
 
-  // basic numeric checks (allow blank)
   const numFields = [
     ["cost", state.ui.cost],
     ["retail", state.ui.retail],
@@ -331,23 +310,16 @@ function validateRule() {
     const n = Number(v);
     if (!Number.isFinite(n)) return `Valeur invalide pour ${k}: "${v}"`;
   }
-
-  // year range must exist (we allow null if no years, but then matching is empty anyway)
-  if (state.filters.yearFrom !== null && state.filters.yearTo !== null && state.filters.yearFrom > state.filters.yearTo) {
-    return "Plage d'années invalide.";
-  }
-
   return null;
 }
 
 function addRule() {
   const err = validateRule();
-  if (err) {
-    alert(err);
-    return;
-  }
+  if (err) { alert(err); return; }
 
-  const nextId = state.savedRules.length ? Math.max(...state.savedRules.map(r => toInt(r.rule_id) || 0)) + 1 : 1;
+  const nextId = state.savedRules.length
+    ? Math.max(...state.savedRules.map(r => toInt(r.rule_id) || 0)) + 1
+    : 1;
 
   const rule = {
     rule_id: String(nextId),
@@ -366,3 +338,136 @@ function addRule() {
     first_km: state.ui.firstKm,
     repeat_months: state.ui.repeatMonths,
     repeat_km: state.ui.repeatKm,
+    trigger_logic: "OR"
+  };
+
+  state.savedRules.push(rule);
+  renderRulesTable();
+}
+
+function exportAssignments() {
+  const lines = [];
+  lines.push(ASSIGNMENT_HEADER.join(","));
+  state.savedRules.forEach(r => {
+    const row = ASSIGNMENT_HEADER.map(h => escapeCsvCell(r[h] ?? ""));
+    lines.push(row.join(","));
+  });
+  downloadText("assignments_export.csv", lines.join("\n"));
+}
+
+function refreshUI() {
+  const makeAvail = getAvailability(vehiclesWithAllFiltersExcept("make")).makes;
+  const modelAvail = getAvailability(vehiclesWithAllFiltersExcept("model")).models;
+  const engineAvail = getAvailability(vehiclesWithAllFiltersExcept("engine")).engines;
+  const transAvail = getAvailability(vehiclesWithAllFiltersExcept("trans")).trans;
+  const propulAvail = getAvailability(vehiclesWithAllFiltersExcept("propul")).propul;
+  const fuelAvail = getAvailability(vehiclesWithAllFiltersExcept("fuel")).fuel;
+
+  const yearBase = (() => {
+    const savedFrom = state.filters.yearFrom;
+    const savedTo = state.filters.yearTo;
+    state.filters.yearFrom = null;
+    state.filters.yearTo = null;
+    const base = getFilteredVehicles();
+    state.filters.yearFrom = savedFrom;
+    state.filters.yearTo = savedTo;
+    return base;
+  })();
+  const yearsAvail = getAvailability(yearBase).years;
+
+  function prune(set, avail) {
+    const a = new Set(avail);
+    for (const v of Array.from(set)) if (!a.has(v)) set.delete(v);
+  }
+  prune(state.filters.make, makeAvail);
+  prune(state.filters.model, modelAvail);
+  prune(state.filters.engine, engineAvail);
+  prune(state.filters.trans, transAvail);
+  prune(state.filters.propul, propulAvail);
+  prune(state.filters.fuel, fuelAvail);
+
+  buildCheckboxList("make_list", makeAvail, state.filters.make, refreshUI);
+  buildCheckboxList("model_list", modelAvail, state.filters.model, refreshUI);
+  buildCheckboxList("engine_list", engineAvail, state.filters.engine, refreshUI);
+  buildCheckboxList("trans_list", transAvail, state.filters.trans, refreshUI);
+  buildCheckboxList("propul_list", propulAvail, state.filters.propul, refreshUI);
+  buildCheckboxList("fuel_list", fuelAvail, state.filters.fuel, refreshUI);
+
+  buildYearRange(yearsAvail);
+
+  const matched = getFilteredVehicles();
+  $("match_count").textContent = String(matched.length);
+
+  const preview = matched.slice(0, 50);
+  const rows = preview.map(v =>
+    `<tr>
+      <td>${v.year ?? ""}</td>
+      <td>${v.make ?? ""}</td>
+      <td>${v.model ?? ""}</td>
+      <td>${v.engine ?? ""}</td>
+      <td>${v.trans ?? ""}</td>
+      <td>${v.propul ?? ""}</td>
+      <td>${v.fuel ?? ""}</td>
+    </tr>`
+  ).join("");
+  $("preview_body").innerHTML = rows || `<tr><td colspan="7" class="muted">Aucun résultat.</td></tr>`;
+}
+
+function renderRulesTable() {
+  const tbody = $("rules_body");
+  if (!state.savedRules.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">Aucune règle sauvegardée.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = state.savedRules.map(r => `
+    <tr>
+      <td>${r.rule_id}</td>
+      <td>${r.maint_code}</td>
+      <td>${r.cost}</td>
+      <td>${r.retail}</td>
+      <td>${r.year_from}–${r.year_to}</td>
+      <td><code>${[r.make,r.model,r.engine,r.trans,r.propul,r.fuel].filter(Boolean).join(" | ") || "ALL"}</code></td>
+    </tr>
+  `).join("");
+}
+
+async function init() {
+  $("status").textContent = "Chargement des CSV…";
+
+  const vehiclesRaw = await parseCSV(VEHICLES_CSV);
+
+  state.vehicles = vehiclesRaw.map(v => ({
+    id: v.id ?? v.ID ?? v.vehicle_id ?? "",
+    year: v.year ?? v.Year ?? "",
+    make: v.make ?? v.Make ?? "",
+    model: v.model ?? v.Model ?? "",
+    engine: v.engine ?? v.Engine ?? "",
+    trans: v.trans ?? v.Trans ?? "",
+    propul: v.propul ?? v.drive ?? v.Propul ?? v.Drive ?? "",
+    fuel: v.fuel ?? v.Fuel ?? "",
+  })).filter(v => String(v.year).trim() !== "" && String(v.make).trim() !== "" && String(v.model).trim() !== "");
+
+  state.maintTypes = await parseCSV(MAINT_TYPES_CSV);
+
+  fillMaintenanceDropdown();
+
+  const allYears = uniqSorted(state.vehicles.map(v => toInt(v.year)).filter(n => n !== null));
+  if (allYears.length) {
+    state.filters.yearFrom = allYears[0];
+    state.filters.yearTo = allYears[allYears.length - 1];
+  }
+
+  $("save_rule").addEventListener("click", addRule);
+  $("export_assignments").addEventListener("click", exportAssignments);
+
+  $("status").textContent = "Prêt.";
+  refreshUI();
+  renderRulesTable();
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  init().catch(err => {
+    console.error(err);
+    $("status").textContent = "Erreur: " + (err?.message || String(err));
+  });
+});
