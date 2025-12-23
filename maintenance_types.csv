@@ -1,1 +1,31 @@
 maint_code,maint_name
+TBELT,Remplacement de la courroie de distribution
+ALIG,Alignement
+SDIFFAV,Vidange d'huile du différentiel avant
+SDIFFAR,Vidange d’huile du différentiel arriere
+SINJ,Nettoyage du système d'injection
+SVALVE,Ajustement des valves
+ABSTEST,Analyse du systeme de charge
+BATT,Remplacement de la batterie 12V
+SCLIM,Entretien du système de climatisation
+ANTI,Antirouille
+SPB,Traitement de pare-brise
+STRANS,Vidange d'huile a transmission
+SWIP,Remplacement des essuis-glace
+SPLUG,Remplacement des bougies d'allumage
+SFREINS,Vidange du liquide de freins
+ENTFRAV,Entretien du système de freins avant
+ENTFRAR,Entretien du système de freins arriere
+OCH,Vidange d'huile moteur
+SBAT,Nettoyage des conection de batterie
+SANT,Vidange du liquide de refroidissement moteur
+SBELT,Remplacement de la courroie serpentine
+SHVAC,Deécontamination du système de ventillation
+SFTANK,Traitement désidrateur de réservooir d'essence
+STCASE,Vidange d'huile a boite de transfert
+RFM,Remplacement du filtre a air moteur
+SPS,Vidange d'huile servo direction
+RFC,Remplacement du filtre a air habitacle
+INSP,Inspection
+SFUEL,Remplacement du filtre à essence
+PROT,Rotation des pneus
