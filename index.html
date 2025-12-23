@@ -36,15 +36,15 @@
     .filterRow::-webkit-scrollbar-thumb { background:#ddd; border-radius: 999px; }
 
     .block {
-      border:1px solid #eee;
-      border-radius:12px;
-      padding:10px;
-      min-width: 260px;      /* each filter same width */
-      max-width: 320px;
-      flex: 0 0 auto;
-      scroll-snap-align: start;
-      background:#fff;
-    }
+  border:1px solid #eee;
+  border-radius:12px;
+  padding:8px;            /* ↓ moins de padding */
+  min-width: 185px;       /* ↓ plus petit */
+  max-width: 220px;       /* ↓ plus petit */
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  background:#fff;
+}
     .block h3 { font-size: 13px; margin: 0 0 8px; color:#333; }
 
     .search { width:100%; padding:8px; border-radius:10px; border:1px solid #ddd; margin-bottom:8px; }
